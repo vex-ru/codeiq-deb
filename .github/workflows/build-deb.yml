@@ -143,6 +143,6 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v$(date +%Y%m%d)
+          tag_name: v$(date +%Y%m%d-%H%M%S)
           files: vexcodeiq.deb
           token: ${{ secrets.GITHUB_TOKEN }}
