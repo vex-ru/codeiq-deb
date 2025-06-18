@@ -10,7 +10,12 @@ jobs:
       contents: write  # Требуется для создания релизов
 
     steps:
-      - name: Checkout codeiq source
+      - name: Checkout codeiq-deb (репозиторий с workflow)
+        uses: actions/checkout@v3
+        with:
+          path: codeiq-deb
+
+      - name: Checkout codeiq (исходники сайта)
         uses: actions/checkout@v3
         with:
           repository: vex-ru/codeiq
@@ -137,7 +142,6 @@ jobs:
 
       - name: Create Git tag
         id: create_tag
-        working-directory: codeiq-deb
         run: |
           TAG_NAME=v$(date +%Y%m%d)
           git config --local user.email "action@github.com"
