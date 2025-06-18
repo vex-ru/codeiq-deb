@@ -140,9 +140,26 @@ jobs:
           dpkg-deb --build vexcodeiq-deb
           mv vexcodeiq-deb.deb vexcodeiq.deb
 
+      - name: Generate SHA-256 hash from timestamp
+      id: generate_hash
+      run: |
+        TIMESTAMP=$(date +%s)
+        HASH=$(echo "$TIMESTAMP" | sha256sum | awk '{print $1}')
+        echo "::set-output name=hash::$HASH"
+
+      - name: Create Git tag with SHA-256 hash
+        working-directory: codeiq-deb
+        run: |
+          TAG_NAME=v${HASH:0:8}  # Используем первые 8 символов хэша
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+          echo "::set-output name=tag::$TAG_NAME"
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v$(date +%Y%m%d-%H%M%S)
+          tag_name: ${{ steps.Create_Git_tag_with_SHA_256_hash.outputs.tag }}
           files: vexcodeiq.deb
           token: ${{ secrets.GITHUB_TOKEN }}
