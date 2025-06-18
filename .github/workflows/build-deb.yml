@@ -153,6 +153,6 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.Create_Git_tag_in_codeiq_deb.outputs.tag }}
+          tag_name: v$(date +%Y%m%d)
           files: vexcodeiq.deb
           token: ${{ secrets.GITHUB_TOKEN }}
