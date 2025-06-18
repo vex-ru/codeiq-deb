@@ -1,0 +1,139 @@
+name: Build VEXCodeIQ Debian Package
+
+on:
+  workflow_dispatch: # Вручную через GitHub UI
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codeiq source
+        uses: actions/checkout@v3
+        with:
+          repository: vex-ru/codeiq
+          path: codeiq
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        working-directory: ./codeiq
+        run: |
+          npm install --save-dev electron electron-packager
+
+      - name: Create package.json
+        working-directory: ./codeiq
+        run: |
+          echo '{
+            "name": "vexcodeiq",
+            "version": "1.0.0",
+            "main": "main.js",
+            "scripts": {
+              "start": "electron ."
+            },
+            "devDependencies": {
+              "electron": "^30.0.0"
+            }
+          }' > package.json
+
+      - name: Create main.js
+        working-directory: ./codeiq
+        run: |
+          echo '
+            const { app, BrowserWindow } = require("electron");
+
+            function createWindow() {
+              const win = new BrowserWindow({
+                width: 1024,
+                height: 768,
+                webPreferences: {
+                  nodeIntegration: false,
+                  contextIsolation: true
+                }
+              });
+              win.loadFile("index.html");
+            }
+
+            app.whenReady().then(createWindow);
+
+            app.on("window-all-closed", () => {
+              if (process.platform !== "darwin") app.quit();
+            });
+          ' > main.js
+
+      - name: Get all files for glob
+        id: get_files
+        working-directory: ./codeiq
+        run: |
+          echo "::set-output name=files::$(git ls-files | tr '\n' ',' | sed 's/,$//')"
+
+      - name: Build Electron App
+        working-directory: ./codeiq
+        run: |
+          npx electron-packager . VEXCodeIQ \
+            --platform=linux \
+            --arch=x64 \
+            --out=dist_app \
+            --overwrite \
+            --glob="{${{ steps.get_files.outputs.files }}}"
+
+      - name: Create DEBIAN package structure
+        run: |
+          mkdir -p vexcodeiq-deb/{DEBIAN,opt/vexcodeiq,usr/bin,usr/share/applications,usr/share/icons/hicolor/256x256/apps}
+          cp -r codeiq/dist_app/VEXCodeIQ-linux-x64/* vexcodeiq-deb/opt/vexcodeiq/
+
+      - name: Create launcher script
+        run: |
+          echo '#!/bin/sh
+          exec /opt/vexcodeiq/VEXCodeIQ "$@"' > vexcodeiq-deb/usr/bin/vexcodeiq
+          chmod +x vexcodeiq-deb/usr/bin/vexcodeiq
+
+      - name: Create desktop entry
+        run: |
+          echo "[Desktop Entry]
+          Name=VEXCode IQ
+          Exec=/opt/vexcodeiq/VEXCodeIQ
+          Icon=/opt/vexcodeiq/icon.png
+          Type=Application
+          Categories=Development;IDE;
+          Comment=Offline VEXCode IQ Editor" > vexcodeiq-deb/usr/share/applications/vexcodeiq.desktop
+
+      - name: Add icon
+        run: |
+          cp codeiq/static/img/icons/appicons/iq-app.ico vexcodeiq-deb/usr/share/icons/hicolor/256x256/apps/vexcodeiq.png
+
+      - name: Create control file
+        run: |
+          echo "Package: vexcodeiq
+          Version: 1.0
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Your Name <your@email.com>
+          Description: Offline VEXCode IQ Editor
+          Homepage: https://github.com/vex-ru/codeiq"  > vexcodeiq-deb/DEBIAN/control
+
+      - name: Add postinst/postrm
+        run: |
+          echo '#!/bin/bash
+          ln -sf /opt/vexcodeiq/VEXCodeIQ /usr/bin/vexcodeiq
+          update-desktop-database' > vexcodeiq-deb/DEBIAN/postinst
+
+          echo '#!/bin/bash
+          rm -f /usr/bin/vexcodeiq
+          update-desktop-database' > vexcodeiq-deb/DEBIAN/postrm
+
+          chmod +x vexcodeiq-deb/DEBIAN/postinst vexcodeiq-deb/DEBIAN/postrm
+
+      - name: Build .deb file
+        run: |
+          dpkg-deb --build vexcodeiq-deb
+          mv vexcodeiq-deb.deb vexcodeiq.deb
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: vexcodeiq.deb
