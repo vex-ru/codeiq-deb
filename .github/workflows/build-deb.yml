@@ -1,13 +1,13 @@
 name: Build VEXCodeIQ Debian Package
 
 on:
-  workflow_dispatch: # Вручную через GitHub UI
+  workflow_dispatch: # Запуск вручную через GitHub UI
 
 jobs:
   build-deb:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Требуется для создания релизов
 
     steps:
       - name: Checkout codeiq source
@@ -135,15 +135,20 @@ jobs:
           dpkg-deb --build vexcodeiq-deb
           mv vexcodeiq-deb.deb vexcodeiq.deb
 
-      - name: Create and push Git tag
+      - name: Create Git tag
+        id: create_tag
+        working-directory: codeiq
         run: |
           TAG_NAME=v$(date +%Y%m%d)
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
+          echo "::set-output name=tag::$TAG_NAME"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: $TAG_NAME
+          tag_name: ${{ steps.create_tag.outputs.tag }}
           files: vexcodeiq.deb
           token: ${{ secrets.GITHUB_TOKEN }}
