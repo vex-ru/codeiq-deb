@@ -141,11 +141,11 @@ jobs:
           mv vexcodeiq-deb.deb vexcodeiq.deb
 
       - name: Generate SHA-256 hash from timestamp
-      id: generate_hash
-      run: |
-        TIMESTAMP=$(date +%s)
-        HASH=$(echo "$TIMESTAMP" | sha256sum | awk '{print $1}')
-        echo "::set-output name=hash::$HASH"
+        id: generate_hash
+        run: |
+          TIMESTAMP=$(date +%s)
+          HASH=$(echo "$TIMESTAMP" | sha256sum | awk '{print $1}')
+          echo "::set-output name=hash::$HASH"
 
       - name: Create Git tag with SHA-256 hash
         working-directory: codeiq-deb
